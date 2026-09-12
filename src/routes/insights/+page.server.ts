@@ -1,8 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { buildBreakdown, fillDailySeries } from '$lib/analytics';
 import { resolveMonthSelection } from '$lib/month';
+import { isOwner } from '$lib/server/access';
 import { requireUserId } from '$lib/server/auth';
-import { config } from '$lib/server/config';
+import { config, describeLlmSetup } from '$lib/server/config';
 import {
 	INSIGHT_DAILY_LIMIT,
 	getCachedInsight,
@@ -57,6 +58,10 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 				}
 			: null,
 		llmEnabled: config.llm.provider !== 'none',
+		// Shown to the owner only: the page otherwise says the assistant is off
+		// without saying which setting is missing, which is exactly the question
+		// someone has when they have just added a key and nothing changed.
+		llmSetup: isOwner(locals.lineUserId ?? '') ? describeLlmSetup() : null,
 		analysesLeft: Math.max(0, INSIGHT_DAILY_LIMIT - used),
 		breakdown: buildBreakdown(expenseSlices),
 		days: fillDailySeries(series, month.from, addDays(month.to, -1), bangkokDayKey(now)),

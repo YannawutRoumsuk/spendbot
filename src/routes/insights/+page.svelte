@@ -111,6 +111,11 @@
 		<p class="muted">เดือนนี้ยังไม่มีรายการ พอเริ่มบันทึกแล้วค่อยกลับมาดูได้</p>
 	{:else if !data.llmEnabled}
 		<p class="muted">ยังไม่ได้ตั้งค่าผู้ช่วยวิเคราะห์ กราฟและตัวเลขด้านล่างใช้ได้ตามปกติ</p>
+		{#if data.llmSetup}
+			<!-- Owner only. Says which setting is missing instead of leaving them to
+			     guess whether a key they just added ever arrived. -->
+			<p class="setup">{data.llmSetup}</p>
+		{/if}
 	{:else if insight}
 		{#if staleNotice}
 			<p class="notice">บทวิเคราะห์นี้เขียนจากตัวเลขชุดก่อน มีรายการเปลี่ยนไปแล้ว กดวิเคราะห์ใหม่ได้</p>
@@ -231,6 +236,16 @@
 		margin-bottom: 0.8rem;
 		color: var(--out);
 		font-size: var(--text-sm);
+	}
+	.setup {
+		margin-top: 0.5rem;
+		padding: 0.5rem 0.6rem;
+		border-radius: var(--radius-sm);
+		background: var(--paper-sunken);
+		font-family: ui-monospace, monospace;
+		font-size: var(--text-xs);
+		color: var(--ink-muted);
+		overflow-x: auto;
 	}
 	.quota {
 		margin-top: 0.35rem;

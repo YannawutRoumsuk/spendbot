@@ -200,6 +200,34 @@ export const config = {
 	llm: resolveLlm()
 };
 
+/**
+ * One line at boot saying what the model settings resolved to.
+ *
+ * Until now `config` only spoke up when something looked wrong, so a correct
+ * setup and a variable that never reached the process produced the same empty
+ * log. That is the state worth naming: both the chat fallback and the monthly
+ * analysis switch themselves off when there is no provider, and from the
+ * outside that is indistinguishable from them being broken.
+ *
+ * Never prints a key, only whether one arrived.
+ */
+export function describeLlmSetup(): string {
+	const parser =
+		config.llm.provider === 'none'
+			? 'parser=off (no usable key)'
+			: `parser=${config.llm.provider}:${config.llm.model}`;
+	// `OCR_PROVIDER=tesseract` wins over any usable transport, so it is checked
+	// first: reporting the transport there would claim images leave the machine
+	// when they never do, which is the opposite of what this line is for.
+	const slips =
+		config.ocr.provider === 'tesseract'
+			? 'slips=tesseract (local, forced)'
+			: config.ocr.vision.transport === 'none'
+				? 'slips=tesseract (local, no vision key)'
+				: `slips=${config.ocr.vision.transport}:${config.ocr.vision.model}`;
+	return `[config] ${parser} ${slips}`;
+}
+
 /** The allowlist is the only thing standing between a stranger and the ledger. */
 export function isAllowedLineUser(lineUserId: string): boolean {
 	return Boolean(lineUserId) && config.line.allowedUserIds.includes(lineUserId);

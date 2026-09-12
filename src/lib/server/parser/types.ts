@@ -31,6 +31,7 @@ export type BotCommand =
 	| 'undo'
 	| 'whoami'
 	| 'members'
+	| 'status'
 	| 'web'
 	| 'feedback'
 	| 'release'

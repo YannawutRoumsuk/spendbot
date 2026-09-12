@@ -75,6 +75,8 @@ const SIMPLE_COMMANDS: Record<string, BotCommand> = {
 	members: 'members',
 	สมาชิก: 'members',
 	ใครใช้บ้าง: 'members',
+	สถานะ: 'status',
+	status: 'status',
 	ฟีดแบ็ก: 'feedback',
 	ฟีดแบค: 'feedback',
 	แจ้งปัญหา: 'feedback',

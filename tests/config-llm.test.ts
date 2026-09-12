@@ -9,6 +9,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  */
 const BASE_ENV = { ...process.env };
 
+async function loadModule(env: Record<string, string | undefined>) {
+	for (const key of ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY', 'LLM_PROVIDER', 'LLM_MODEL', 'OCR_API_PROVIDER', 'OCR_MODEL', 'OCR_PROVIDER']) {
+		delete process.env[key];
+	}
+	Object.assign(process.env, env);
+	vi.resetModules();
+	return await import('../src/lib/server/config');
+}
+
 async function loadConfig(env: Record<string, string | undefined>) {
 	for (const key of ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY', 'LLM_PROVIDER', 'LLM_MODEL', 'OCR_API_PROVIDER', 'OCR_MODEL']) {
 		delete process.env[key];
@@ -108,5 +117,36 @@ describe('warning about a model id that cannot work', () => {
 		await loadConfig({ OPENROUTER_API_KEY: 'sk-or-x', OCR_API_PROVIDER: 'openrouter', LLM_MODEL: 'google/gemini-2.5-flash-lite' });
 		expect(warn).not.toHaveBeenCalled();
 		warn.mockRestore();
+	});
+});
+
+describe('saying out loud what resolved', () => {
+	// The gap this closes: config only spoke up when something looked wrong, so
+	// a working setup and a variable that never arrived left the same empty log.
+	it('names the provider and model when a gateway key is present', async () => {
+		const { describeLlmSetup } = await loadModule({
+			OPENROUTER_API_KEY: 'sk-or-x',
+			OCR_API_PROVIDER: 'openrouter'
+		});
+		expect(describeLlmSetup()).toBe(
+			'[config] parser=openrouter:google/gemini-2.5-flash-lite slips=openrouter:google/gemini-2.5-flash'
+		);
+	});
+
+	it('says why each half is off when nothing is configured', async () => {
+		const { describeLlmSetup } = await loadModule({});
+		const line = describeLlmSetup();
+		expect(line).toContain('parser=off (no usable key)');
+		expect(line).toContain('slips=tesseract (local, no vision key)');
+	});
+
+	it('distinguishes a forced local reader from a missing key', async () => {
+		const { describeLlmSetup } = await loadModule({ OCR_PROVIDER: 'tesseract', GEMINI_API_KEY: 'goog-x' });
+		expect(describeLlmSetup()).toContain('slips=tesseract (local, forced)');
+	});
+
+	it('never prints the key itself', async () => {
+		const { describeLlmSetup } = await loadModule({ OPENROUTER_API_KEY: 'sk-or-secret-value' });
+		expect(describeLlmSetup()).not.toContain('sk-or-secret-value');
 	});
 });

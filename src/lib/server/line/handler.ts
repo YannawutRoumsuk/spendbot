@@ -1,7 +1,7 @@
 import { EXPENSE_CATEGORIES, FALLBACK_CATEGORY } from '$lib/categories';
 import { analyzeBudget } from '$lib/budget';
 import { billDueDate } from '$lib/bills';
-import { config } from '$lib/server/config';
+import { config, describeLlmSetup } from '$lib/server/config';
 import { textTransactionFingerprint } from '$lib/server/dedupe';
 import { admit, isOwner } from '$lib/server/access';
 import { claimPendingAction, listMembers, pendingActionIsLive, setPendingAction } from '$lib/server/db/users';
@@ -134,6 +134,12 @@ async function handleEvent(event: LineEvent): Promise<void> {
 	// it has no business inside a per-user write, and it must not be deduped.
 	if (matchCommand(text) === 'members') {
 		await replyText(event.replyToken, await membersSummary(userId));
+		return;
+	}
+	// Reads settings rather than the ledger, and is owner-only, so it is
+	// answered here for the same reason the member list is.
+	if (matchCommand(text) === 'status') {
+		await replyText(event.replyToken, statusSummary(userId));
 		return;
 	}
 	if (event.message.type === 'image') {
@@ -355,6 +361,25 @@ async function sendQuietly(send: () => Promise<unknown>): Promise<void> {
 	}
 }
 
+/**
+ * What the bot is actually wired to right now. Exists because both the chat
+ * fallback and the monthly analysis go quiet when no provider resolves, and
+ * from the outside that looks the same as them being broken — so the owner
+ * needs a way to ask without reading a deploy log.
+ */
+function statusSummary(userId: string): string {
+	if (!isOwner(userId)) return 'เฉพาะเจ้าของบอทเท่านั้นที่ดูสถานะระบบได้';
+	return [
+		'⚙️ สถานะระบบ',
+		'',
+		describeLlmSetup().replace('[config] ', ''),
+		'',
+		config.llm.provider === 'none'
+			? 'ตัวช่วยอ่านข้อความปิดอยู่ ยังบันทึกด้วยกฎได้ตามปกติ'
+			: 'ตัวช่วยอ่านข้อความพร้อมใช้'
+	].join('\n');
+}
+
 async function membersSummary(userId: string): Promise<string> {
 	if (!isOwner(userId)) return 'เฉพาะเจ้าของบอทเท่านั้นที่ดูรายชื่อสมาชิกได้';
 	return membersText(await listMembers());
@@ -494,6 +519,10 @@ async function runCommand(command: BotCommand, user: User, executor: DbExecutor)
 			// Answered in handleEvent: it reads across users, so it must not run
 			// inside this user's write transaction.
 			throw new Error('members must be handled before the ledger transaction');
+		case 'status':
+			// Answered in handleEvent for the same reason: it reads settings, not
+			// this person's ledger, and it must not be deduped as a mutation.
+			throw new Error('status must be handled before the ledger transaction');
 		case 'feedback':
 			// The message itself comes next: what someone wants to say rarely fits
 			// on the line that opens the conversation.

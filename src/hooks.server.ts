@@ -2,11 +2,21 @@ import { redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit';
 import { SESSION_COOKIE, verifySessionToken } from '$lib/server/auth';
 import { building } from '$app/environment';
-import { config } from '$lib/server/config';
+import { config, describeLlmSetup } from '$lib/server/config';
 import { resolveMember } from '$lib/server/access';
 import { startReminderWorker } from '$lib/server/reminders';
 
-const runtime = globalThis as typeof globalThis & { __spendbotReminderWorkerStarted?: boolean };
+const runtime = globalThis as typeof globalThis & {
+	__spendbotReminderWorkerStarted?: boolean;
+	__spendbotLoggedLlmSetup?: boolean;
+};
+
+// Printed once per process so the deploy log answers "did the keys arrive?"
+// without anyone having to reproduce a failure in chat to find out.
+if (!building && process.env.NODE_ENV !== 'test' && !runtime.__spendbotLoggedLlmSetup) {
+	runtime.__spendbotLoggedLlmSetup = true;
+	console.info(describeLlmSetup());
+}
 if (!building && process.env.NODE_ENV !== 'test' && config.reminders.mode === 'timer' && config.databaseUrl && config.line.accessToken && config.line.allowedUserIds.length > 0 && !runtime.__spendbotReminderWorkerStarted) {
 	runtime.__spendbotReminderWorkerStarted = true;
 	startReminderWorker();
